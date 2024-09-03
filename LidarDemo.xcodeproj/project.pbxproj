@@ -11,6 +11,7 @@
 		C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7832C876C5A00FE9C5F /* ContentView.swift */; };
 		C1BDC7862C876C5B00FE9C5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */; };
 		C1BDC7892C876C5B00FE9C5F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7882C876C5B00FE9C5F /* Preview Assets.xcassets */; };
+		C1BDC7932C876FD300FE9C5F /* Lidar360DistancePlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,8 @@
 		C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C1BDC7882C876C5B00FE9C5F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		C1BDC78A2C876C5B00FE9C5F /* LidarDemo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LidarDemo.entitlements; sourceTree = "<group>"; };
+		C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lidar360DistancePlot.swift; sourceTree = "<group>"; };
+		C1BDC7942C87768700FE9C5F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,11 +55,13 @@
 		C1BDC7802C876C5A00FE9C5F /* LidarDemo */ = {
 			isa = PBXGroup;
 			children = (
+				C1BDC7942C87768700FE9C5F /* Info.plist */,
 				C1BDC7812C876C5A00FE9C5F /* LidarDemoApp.swift */,
 				C1BDC7832C876C5A00FE9C5F /* ContentView.swift */,
 				C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */,
 				C1BDC78A2C876C5B00FE9C5F /* LidarDemo.entitlements */,
 				C1BDC7872C876C5B00FE9C5F /* Preview Content */,
+				C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */,
 			);
 			path = LidarDemo;
 			sourceTree = "<group>";
@@ -139,6 +144,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1BDC7932C876FD300FE9C5F /* Lidar360DistancePlot.swift in Sources */,
 				C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */,
 				C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */,
 			);
@@ -279,6 +285,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LidarDemo/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -306,6 +313,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LidarDemo/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

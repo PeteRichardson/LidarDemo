@@ -9,14 +9,26 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        GeometryReader { windowGeometry in
+            VStack {
+                GeometryReader { plotGeometry in
+                    Lidar360DistancePlot()
+                        .path(in: plotGeometry.frame(in: .local))
+                        .stroke()
+                        .scaledToFit()
+                }
+                .padding()
+                Text("Lidar Data")
+                    .textScale(.default)
+                    .font(.largeTitle)
+                    .font(.system(size: min(windowGeometry.size.width, windowGeometry.size.height) * 0.075))
+                    .padding()
+            }
+            .padding()
+            .foregroundColor(Color.white)
+            .background(Color.black)
         }
-        .padding()
-    }
+   }
 }
 
 #Preview {
