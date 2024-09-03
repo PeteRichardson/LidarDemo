@@ -12,6 +12,7 @@
 		C1BDC7862C876C5B00FE9C5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */; };
 		C1BDC7892C876C5B00FE9C5F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7882C876C5B00FE9C5F /* Preview Assets.xcassets */; };
 		C1BDC7932C876FD300FE9C5F /* Lidar360DistancePlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */; };
+		C1BDC7962C87875400FE9C5F /* LidarDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7952C87875400FE9C5F /* LidarDataSource.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +24,7 @@
 		C1BDC78A2C876C5B00FE9C5F /* LidarDemo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LidarDemo.entitlements; sourceTree = "<group>"; };
 		C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lidar360DistancePlot.swift; sourceTree = "<group>"; };
 		C1BDC7942C87768700FE9C5F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C1BDC7952C87875400FE9C5F /* LidarDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarDataSource.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +64,7 @@
 				C1BDC78A2C876C5B00FE9C5F /* LidarDemo.entitlements */,
 				C1BDC7872C876C5B00FE9C5F /* Preview Content */,
 				C1BDC7922C876FD300FE9C5F /* Lidar360DistancePlot.swift */,
+				C1BDC7952C87875400FE9C5F /* LidarDataSource.swift */,
 			);
 			path = LidarDemo;
 			sourceTree = "<group>";
@@ -147,6 +150,7 @@
 				C1BDC7932C876FD300FE9C5F /* Lidar360DistancePlot.swift in Sources */,
 				C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */,
 				C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */,
+				C1BDC7962C87875400FE9C5F /* LidarDataSource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
