@@ -7,10 +7,10 @@
 
 import SwiftUI
 
-struct Lidar360DistancePlot: Shape {
-    let nodes : [LidarNode]
+struct Lidar360Plot: Shape {
+    let nodes : Lidar360Data
     
-    init(nodes: [LidarNode]) {
+    init(nodes: Lidar360Data) {
         self.nodes = nodes
     }
     

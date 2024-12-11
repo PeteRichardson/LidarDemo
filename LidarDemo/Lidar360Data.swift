@@ -44,10 +44,9 @@ struct sl_lidar_response_measurement_node_hq {
     }
 }
 typealias LidarNode = sl_lidar_response_measurement_node_hq
+typealias Lidar360Data = [LidarNode]
 
-
-struct LidarDataSource {
-    var nodes : [LidarNode] = [
+let sample360Data : Lidar360Data = [
         LidarNode(0.06,     226,188,0),
         LidarNode(0.89,     227,188,0),
         LidarNode(1.71,     226,188,0),
@@ -375,5 +374,5 @@ struct LidarDataSource {
         LidarNode(357.12,     228,188,0),
         LidarNode(357.92,     225,188,0),
         LidarNode(358.70,     226,188,0),
-        LidarNode(359.23,     225,188,0),    ]
-}
+        LidarNode(359.23,     225,188,0),
+    ]

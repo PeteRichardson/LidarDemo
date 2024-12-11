@@ -8,18 +8,21 @@
 import SwiftUI
 
 struct ContentView: View {
-    let nodes = LidarDataSource().nodes
+    let nodes = sample360Data
     var body: some View {
         GeometryReader { windowGeometry in
             VStack {
                 GeometryReader { plotGeometry in
-                    Lidar360DistancePlot(nodes: nodes)
+                    Lidar360Plot(nodes: nodes)
                         .path(in: plotGeometry.frame(in: .local))
-                        .offsetBy(dx: plotGeometry.size.width / 2, dy: plotGeometry.size.height / 2)
+                        .offsetBy(dx: plotGeometry.size.width / 2.0, dy: plotGeometry.size.height / 2.0)
                         .stroke()
-                        .scaledToFit()
+//                        .frame(width:plotGeometry.size.width/20, height: plotGeometry.size.height*5)
+//                        .scaledToFill()
+                        .aspectRatio(contentMode: .fit)
                 }
-                .padding()
+                .border(Color.white, width: 1)
+//                .padding()
                 Text("Lidar Data")
                     .textScale(.default)
                     .font(.largeTitle)
