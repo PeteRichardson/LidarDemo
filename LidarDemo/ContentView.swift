@@ -33,6 +33,26 @@ struct ContentView: View {
             .foregroundColor(Color.white)
             .background(Color.black)
         }
+        // TEMPORARY: log live scans to the console to check the serial link. Replace in step 6.
+        .task {
+            guard let path = SerialPortFinder.calloutPath() else {
+                print("Lidar not found (USB 0x10c4:0xea60)")
+                return
+            }
+            print("Lidar found on \(path)")
+            do {
+                var count = 0
+                for try await scan in LidarDevice(path: path).scans() {
+                    count += 1
+                    if count % 10 == 0 {
+                        let nearest = scan.map(\.dist).min() ?? 0
+                        print("scan \(count): \(scan.count) nodes, nearest \(Int(nearest)) mm")
+                    }
+                }
+            } catch {
+                print("Lidar error: \(error)")
+            }
+        }
    }
 }
 
