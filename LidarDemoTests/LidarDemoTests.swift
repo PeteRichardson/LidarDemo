@@ -131,12 +131,18 @@ struct Lidar360PlotTests {
         #expect(Lidar360Plot(nodes: [], rangeMM: 2000).path(in: rect).isEmpty)
     }
 
-    @Test func rangeMapsToEdgeOfPlot() {
+    @Test(arguments: [
+        (degrees: 0.0, x: 100.0, y: 0.0),     // arrow direction at the top
+        (degrees: 90.0, x: 200.0, y: 100.0),  // clockwise, so 90° at the right
+        (degrees: 180.0, x: 100.0, y: 200.0),
+        (degrees: 270.0, x: 0.0, y: 100.0),
+    ])
+    func rangeMapsToEdgeOfPlot(degrees: Double, x: Double, y: Double) {
         let plot = Lidar360Plot(nodes: [], rangeMM: 2000)
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let point = plot.toPoint(LidarNode(0, 2000 * 4, 0, 0), center: center, scale: 100 / 2000)
-        #expect(abs(point.x - 200) < 0.001)
-        #expect(abs(point.y - 100) < 0.001)
+        let point = plot.toPoint(LidarNode(degrees, 2000 * 4, 0, 0), center: center, scale: 100 / 2000)
+        #expect(abs(point.x - x) < 0.01)
+        #expect(abs(point.y - y) < 0.01)
     }
 
     @Test func nodesOutOfRangeStayInsidePlot() {

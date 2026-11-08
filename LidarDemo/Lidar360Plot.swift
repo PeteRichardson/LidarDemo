@@ -18,10 +18,12 @@ struct Lidar360Plot: Shape {
         self.rangeMM = rangeMM
     }
 
+    /// The lidar measures 0° in the direction of its arrow, with angles clockwise when seen from above.
+    /// Draw 0° at the top of the plot and 90° at the right. Screen y increases downwards.
     func toPoint(_ node: LidarNode, center: CGPoint, scale: CGFloat) -> CGPoint {
         let dist = min(node.dist, rangeMM) * scale
         let radians = node.angle * Double.pi / 180
-        return CGPoint(x: center.x + dist * cos(radians), y: center.y + dist * sin(radians))
+        return CGPoint(x: center.x + dist * sin(radians), y: center.y - dist * cos(radians))
     }
 
     func path(in rect: CGRect) -> Path {
