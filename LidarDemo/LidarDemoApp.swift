@@ -13,5 +13,7 @@ struct LidarDemoApp: App {
         WindowGroup {
             ContentView()
         }
+        // Square, because the plot is a circle.
+        .defaultSize(width: 700, height: 700)
     }
 }

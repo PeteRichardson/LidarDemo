@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var model: LidarModel
     /// Distance in millimetres at the edge of the plot. Fixed, so an object that comes near does not change the zoom.
-    @State private var rangeMM: CGFloat = 2000
+    @State private var rangeMM: CGFloat = 500
     /// Extra gap in millimetres permitted between neighbours on one surface. Larger values join more points into one shape.
     @State private var toleranceMM: CGFloat = 30
 
