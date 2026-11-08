@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,6 +11,7 @@
 		C155E32630A0F0C600D0A8B1 /* SerialPort.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32530A0F0C600D0A8B1 /* SerialPort.swift */; };
 		C155E32830A0F0D700D0A8B1 /* RPLidarProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32730A0F0D700D0A8B1 /* RPLidarProtocol.swift */; };
 		C155E32A30A0F0EB00D0A8B1 /* LidarDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */; };
+		C155E32C30A0F25900D0A8B1 /* LidarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32B30A0F25900D0A8B1 /* LidarModel.swift */; };
 		C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7812C876C5A00FE9C5F /* LidarDemoApp.swift */; };
 		C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7832C876C5A00FE9C5F /* ContentView.swift */; };
 		C1BDC7862C876C5B00FE9C5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */; };
@@ -23,7 +24,9 @@
 		C155E32330A0F0BC00D0A8B1 /* SerialPortFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialPortFinder.swift; sourceTree = "<group>"; };
 		C155E32530A0F0C600D0A8B1 /* SerialPort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialPort.swift; sourceTree = "<group>"; };
 		C155E32730A0F0D700D0A8B1 /* RPLidarProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPLidarProtocol.swift; sourceTree = "<group>"; };
-		C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */ = {isa = PBXFileReference; path = LidarDevice.swift; sourceTree = "<group>"; };
+		C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarDevice.swift; sourceTree = "<group>"; };
+		C155E32B30A0F25900D0A8B1 /* LidarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarModel.swift; sourceTree = "<group>"; };
+		C155E33130A0F2F000D0A8B1 /* LidarDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LidarDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1BDC77E2C876C5A00FE9C5F /* LidarDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LidarDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1BDC7812C876C5A00FE9C5F /* LidarDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarDemoApp.swift; sourceTree = "<group>"; };
 		C1BDC7832C876C5A00FE9C5F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -35,7 +38,18 @@
 		C1BDC7952C87875400FE9C5F /* Lidar360Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lidar360Data.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C155E33230A0F2F000D0A8B1 /* LidarDemoTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LidarDemoTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		C155E32E30A0F2F000D0A8B1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C1BDC77B2C876C5A00FE9C5F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -50,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				C1BDC7802C876C5A00FE9C5F /* LidarDemo */,
+				C155E33230A0F2F000D0A8B1 /* LidarDemoTests */,
 				C1BDC77F2C876C5A00FE9C5F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -58,6 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				C1BDC77E2C876C5A00FE9C5F /* LidarDemo.app */,
+				C155E33130A0F2F000D0A8B1 /* LidarDemoTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -77,6 +93,7 @@
 				C155E32530A0F0C600D0A8B1 /* SerialPort.swift */,
 				C155E32730A0F0D700D0A8B1 /* RPLidarProtocol.swift */,
 				C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */,
+				C155E32B30A0F25900D0A8B1 /* LidarModel.swift */,
 			);
 			path = LidarDemo;
 			sourceTree = "<group>";
@@ -92,6 +109,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		C155E33030A0F2F000D0A8B1 /* LidarDemoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C155E33530A0F2F000D0A8B1 /* Build configuration list for PBXNativeTarget "LidarDemoTests" */;
+			buildPhases = (
+				C155E32D30A0F2F000D0A8B1 /* Sources */,
+				C155E32E30A0F2F000D0A8B1 /* Frameworks */,
+				C155E32F30A0F2F000D0A8B1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C155E33230A0F2F000D0A8B1 /* LidarDemoTests */,
+			);
+			name = LidarDemoTests;
+			packageProductDependencies = (
+			);
+			productName = LidarDemoTests;
+			productReference = C155E33130A0F2F000D0A8B1 /* LidarDemoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		C1BDC77D2C876C5A00FE9C5F /* LidarDemo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C1BDC78D2C876C5B00FE9C5F /* Build configuration list for PBXNativeTarget "LidarDemo" */;
@@ -116,9 +155,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1540;
+				LastSwiftUpdateCheck = 2720;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					C155E33030A0F2F000D0A8B1 = {
+						CreatedOnToolsVersion = 27.2;
+					};
 					C1BDC77D2C876C5A00FE9C5F = {
 						CreatedOnToolsVersion = 15.4;
 					};
@@ -138,11 +180,19 @@
 			projectRoot = "";
 			targets = (
 				C1BDC77D2C876C5A00FE9C5F /* LidarDemo */,
+				C155E33030A0F2F000D0A8B1 /* LidarDemoTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		C155E32F30A0F2F000D0A8B1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C1BDC77C2C876C5A00FE9C5F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -155,6 +205,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		C155E32D30A0F2F000D0A8B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C1BDC77A2C876C5A00FE9C5F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -163,6 +220,7 @@
 				C155E32630A0F0C600D0A8B1 /* SerialPort.swift in Sources */,
 				C155E32830A0F0D700D0A8B1 /* RPLidarProtocol.swift in Sources */,
 				C1BDC7932C876FD300FE9C5F /* Lidar360Plot.swift in Sources */,
+				C155E32C30A0F25900D0A8B1 /* LidarModel.swift in Sources */,
 				C155E32430A0F0BC00D0A8B1 /* SerialPortFinder.swift in Sources */,
 				C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */,
 				C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */,
@@ -173,6 +231,58 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		C155E33630A0F2F000D0A8B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RFDDK5QUG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterichardson.LidarDemoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LidarDemo.app/Contents/MacOS/LidarDemo";
+				XROS_DEPLOYMENT_TARGET = 27.2;
+			};
+			name = Debug;
+		};
+		C155E33730A0F2F000D0A8B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RFDDK5QUG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.peterichardson.LidarDemoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LidarDemo.app/Contents/MacOS/LidarDemo";
+				XROS_DEPLOYMENT_TARGET = 27.2;
+			};
+			name = Release;
+		};
 		C1BDC78B2C876C5B00FE9C5F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -354,6 +464,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		C155E33530A0F2F000D0A8B1 /* Build configuration list for PBXNativeTarget "LidarDemoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C155E33630A0F2F000D0A8B1 /* Debug */,
+				C155E33730A0F2F000D0A8B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		C1BDC7792C876C5A00FE9C5F /* Build configuration list for PBXProject "LidarDemo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

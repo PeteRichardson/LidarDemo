@@ -1,0 +1,153 @@
+//
+//  LidarDemoTests.swift
+//  LidarDemoTests
+//
+//  Created by Peter Richardson on 11/8/26.
+//
+
+import SwiftUI
+import Testing
+@testable import LidarDemo
+
+/// Encodes one standard SCAN node, the opposite of `RPLidarScanNode.decode`.
+private func nodeBytes(start: Bool, quality: UInt8 = 47, angleQ6: UInt16, distanceQ2: UInt16) -> [UInt8] {
+    [
+        quality << 2 | (start ? 0b01 : 0b10),
+        UInt8(angleQ6 & 0x7F) << 1 | 1,
+        UInt8(angleQ6 >> 7),
+        UInt8(distanceQ2 & 0xFF),
+        UInt8(distanceQ2 >> 8),
+    ]
+}
+
+/// Encodes a node from degrees and millimetres.
+private func node(start: Bool = false, degrees: Double, mm: Double) -> [UInt8] {
+    nodeBytes(start: start, angleQ6: UInt16(degrees * 64), distanceQ2: UInt16(mm * 4))
+}
+
+struct RPLidarProtocolTests {
+
+    @Test func commandPackets() {
+        #expect(RPLidarCommand.stop.packet == [0xA5, 0x25])
+        #expect(RPLidarCommand.scan.packet == [0xA5, 0x20])
+        #expect(RPLidarCommand.getInfo.packet == [0xA5, 0x50])
+    }
+
+    @Test func scanDescriptor() {
+        let bytes: [UInt8] = [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81]
+        #expect(RPLidarResponseDescriptor(bytes: bytes) == .scan)
+    }
+
+    @Test func infoDescriptor() {
+        let bytes: [UInt8] = [0xA5, 0x5A, 0x14, 0x00, 0x00, 0x00, 0x04]
+        #expect(RPLidarResponseDescriptor(bytes: bytes) == .info)
+    }
+
+    @Test func descriptorRejectsBadSyncOrLength() {
+        #expect(RPLidarResponseDescriptor(bytes: [0xA5, 0x00, 0x05, 0x00, 0x00, 0x40, 0x81]) == nil)
+        #expect(RPLidarResponseDescriptor(bytes: [0xA5, 0x5A, 0x05]) == nil)
+    }
+
+    @Test func decodeNode() throws {
+        let decoded = try #require(RPLidarScanNode.decode(node(start: true, degrees: 90, mm: 1000)))
+        #expect(decoded.isStartOfScan)
+        #expect(decoded.quality == 47)
+        #expect(decoded.angleDegrees == 90)
+        #expect(decoded.distanceQ2 == 4000)
+    }
+
+    @Test func decodeRejectsBadStartBits() {
+        var bytes = node(degrees: 10, mm: 500)
+        bytes[0] |= 0b11  // S and !S both 1
+        #expect(RPLidarScanNode.decode(bytes) == nil)
+    }
+
+    @Test func decodeRejectsMissingCheckBit() {
+        var bytes = node(degrees: 10, mm: 500)
+        bytes[1] &= 0xFE
+        #expect(RPLidarScanNode.decode(bytes) == nil)
+    }
+}
+
+struct ScanAssemblerTests {
+
+    @Test func outputsRevolutionWhenNextOneStarts() {
+        var assembler = ScanAssembler()
+        let first = node(start: true, degrees: 0, mm: 100) + node(degrees: 120, mm: 200) + node(degrees: 240, mm: 300)
+        #expect(assembler.append(first).isEmpty)
+
+        let scans = assembler.append(node(start: true, degrees: 1, mm: 400))
+        #expect(scans.count == 1)
+        #expect(scans.first?.map(\.dist) == [100, 200, 300])
+    }
+
+    @Test func discardsNodesBeforeFirstStart() {
+        var assembler = ScanAssembler()
+        let bytes = node(degrees: 300, mm: 999) + node(start: true, degrees: 0, mm: 100)
+            + node(degrees: 180, mm: 200) + node(start: true, degrees: 0, mm: 100)
+        let scans = assembler.append(bytes)
+        #expect(scans.map { $0.map(\.dist) } == [[100, 200]])
+    }
+
+    @Test func dropsZeroDistance() {
+        var assembler = ScanAssembler()
+        let bytes = node(start: true, degrees: 0, mm: 100) + node(degrees: 90, mm: 0)
+            + node(degrees: 180, mm: 200) + node(start: true, degrees: 0, mm: 100)
+        #expect(assembler.append(bytes).first?.count == 2)
+    }
+
+    @Test func joinsNodesSplitAcrossReads() {
+        var assembler = ScanAssembler()
+        let bytes = node(start: true, degrees: 0, mm: 100) + node(degrees: 180, mm: 200)
+            + node(start: true, degrees: 0, mm: 100)
+        var scans: [Lidar360Data] = []
+        for byte in bytes {
+            scans += assembler.append([byte])
+        }
+        #expect(scans.map { $0.map(\.dist) } == [[100, 200]])
+    }
+
+    @Test func syncsAgainAfterBadBytes() {
+        var assembler = ScanAssembler()
+        let bytes = [0x00, 0x00] + node(start: true, degrees: 0, mm: 100) + node(degrees: 180, mm: 200)
+            + node(start: true, degrees: 0, mm: 100)
+        let scans = assembler.append(bytes)
+        #expect(scans.map { $0.map(\.dist) } == [[100, 200]])
+        #expect(assembler.discardedBytes == 2)
+    }
+
+    @Test func keepsAngle() throws {
+        var assembler = ScanAssembler()
+        let bytes = node(start: true, degrees: 45, mm: 100) + node(start: true, degrees: 0, mm: 100)
+        let angle = try #require(assembler.append(bytes).first?.first?.angle)
+        #expect(abs(angle - 45) < 0.01)
+    }
+}
+
+struct Lidar360PlotTests {
+    let rect = CGRect(x: 0, y: 0, width: 200, height: 200)
+
+    @Test func emptyScanGivesEmptyPath() {
+        #expect(Lidar360Plot(nodes: [], rangeMM: 2000).path(in: rect).isEmpty)
+    }
+
+    @Test func rangeMapsToEdgeOfPlot() {
+        let plot = Lidar360Plot(nodes: [], rangeMM: 2000)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let point = plot.toPoint(LidarNode(0, 2000 * 4, 0, 0), center: center, scale: 100 / 2000)
+        #expect(abs(point.x - 200) < 0.001)
+        #expect(abs(point.y - 100) < 0.001)
+    }
+
+    @Test func nodesOutOfRangeStayInsidePlot() {
+        let nodes = [LidarNode(0, 10_000 * 4, 0, 0), LidarNode(90, 10_000 * 4, 0, 0), LidarNode(180, 500 * 4, 0, 0)]
+        let bounds = Lidar360Plot(nodes: nodes, rangeMM: 2000).path(in: rect).boundingRect
+        #expect(rect.insetBy(dx: -0.001, dy: -0.001).contains(bounds))
+    }
+
+    @Test func sampleScanFitsInPlot() {
+        let bounds = Lidar360Plot(nodes: sample360Data, rangeMM: 2000).path(in: rect).boundingRect
+        #expect(!bounds.isEmpty)
+        #expect(rect.contains(bounds))
+    }
+}
