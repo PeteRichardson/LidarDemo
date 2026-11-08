@@ -206,3 +206,38 @@ struct Lidar360PlotTests {
         #expect(rect.contains(bounds))
     }
 }
+
+struct LidarItemTests {
+    /// Nodes every 1° from `start`, all at one range in millimetres.
+    private func arc(from start: Int, count: Int, mm: Double) -> Lidar360Data {
+        (start..<start + count).map { LidarNode(Double($0), UInt32(mm * 4), 0, 0) }
+    }
+
+    @Test func rangeRunsShareBoundaryNode() {
+        let nodes = [LidarNode(0, 400 * 4, 0, 0), LidarNode(1, 600 * 4, 0, 0), LidarNode(2, 600 * 4, 0, 0), LidarNode(3, 400 * 4, 0, 0)]
+        let runs = Lidar360Plot.rangeRuns(nodes, rangeMM: 500)
+        #expect(runs.map(\.beyondRange) == [false, true, false])
+        #expect(runs.map { $0.nodes.map(\.dist) } == [[400], [400, 600, 600, 400], [400]])
+    }
+
+    @Test func itemKeepsColorWhenItMovesALittle() {
+        var tracker = LidarItemTracker()
+        let first = tracker.items(in: arc(from: 10, count: 5, mm: 500) + arc(from: 90, count: 5, mm: 500), toleranceMM: 30)
+        let second = tracker.items(in: arc(from: 11, count: 5, mm: 490) + arc(from: 91, count: 5, mm: 510), toleranceMM: 30)
+        #expect(first.map(\.colorIndex) == [0, 1])
+        #expect(second.map(\.colorIndex) == [0, 1])
+    }
+
+    @Test func newItemGetsNewColor() {
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 10, count: 5, mm: 500), toleranceMM: 30)
+        let items = tracker.items(in: arc(from: 10, count: 5, mm: 500) + arc(from: 180, count: 5, mm: 500), toleranceMM: 30)
+        #expect(items.map(\.colorIndex) == [0, 1])
+    }
+
+    @Test func singleNodeHasNoColor() {
+        var tracker = LidarItemTracker()
+        let items = tracker.items(in: [LidarNode(10, 500 * 4, 0, 0)], toleranceMM: 30)
+        #expect(items.map(\.colorIndex) == [nil])
+    }
+}

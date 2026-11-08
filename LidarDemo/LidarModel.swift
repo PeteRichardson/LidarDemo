@@ -17,7 +17,16 @@ final class LidarModel {
         case error(String)
     }
 
-    private(set) var scan: Lidar360Data
+    private(set) var scan: Lidar360Data {
+        didSet { updateItems() }
+    }
+    /// The surfaces in `scan`, each with a colour index that stays with it from scan to scan.
+    private(set) var items: [LidarItem] = []
+    /// Extra gap in millimetres permitted between neighbours on one surface. Larger values join more points into one item.
+    var toleranceMM: CGFloat = 30 {
+        didSet { updateItems() }
+    }
+    @ObservationIgnored private var itemTracker = LidarItemTracker()
     private(set) var status: Status = .searching
 
     /// False for Previews: the model shows the given scan and does not open the serial port.
@@ -35,6 +44,11 @@ final class LidarModel {
         scan = previewScan
         status = .sample
         isLive = false
+        updateItems()
+    }
+
+    private func updateItems() {
+        items = itemTracker.items(in: scan, toleranceMM: toleranceMM)
     }
 
     /// Xcode Previews and hosted unit tests launch the whole macOS app.
