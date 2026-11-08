@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var model: LidarModel
     /// Distance in millimetres at the edge of the plot. Fixed, so an object that comes near does not change the zoom.
     @State private var rangeMM: CGFloat = 2000
+    /// Extra gap in millimetres permitted between neighbours on one surface. Larger values join more points into one shape.
+    @State private var toleranceMM: CGFloat = 30
 
     init(model: LidarModel? = nil) {
         _model = State(initialValue: model ?? LidarModel())
@@ -19,7 +21,7 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { windowGeometry in
             VStack {
-                Lidar360Plot(nodes: model.scan, rangeMM: rangeMM)
+                Lidar360Plot(nodes: model.scan, rangeMM: rangeMM, toleranceMM: toleranceMM)
                     .stroke()
                     .aspectRatio(1, contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,6 +30,12 @@ struct ContentView: View {
                     Text("Range")
                     Slider(value: $rangeMM, in: 500...12000)
                     Text(String(format: "%.1f m", rangeMM / 1000))
+                        .monospacedDigit()
+                }
+                HStack {
+                    Text("Gap tolerance")
+                    Slider(value: $toleranceMM, in: 0...200)
+                    Text(String(format: "%.0f mm", toleranceMM))
                         .monospacedDigit()
                 }
                 Text(statusText)

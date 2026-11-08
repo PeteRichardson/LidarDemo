@@ -148,7 +148,56 @@ struct Lidar360PlotTests {
     @Test func nodesOutOfRangeStayInsidePlot() {
         let nodes = [LidarNode(0, 10_000 * 4, 0, 0), LidarNode(90, 10_000 * 4, 0, 0), LidarNode(180, 500 * 4, 0, 0)]
         let bounds = Lidar360Plot(nodes: nodes, rangeMM: 2000).path(in: rect).boundingRect
-        #expect(rect.insetBy(dx: -0.001, dy: -0.001).contains(bounds))
+        // These nodes are far apart, so each one is a dot that can extend past the edge by its radius.
+        let margin = Lidar360Plot.dotRadius + 0.001
+        #expect(rect.insetBy(dx: -margin, dy: -margin).contains(bounds))
+    }
+
+    /// Nodes every 1° at the given ranges in millimetres, starting at 0°.
+    private func scan(_ ranges: [Double]) -> Lidar360Data {
+        ranges.enumerated().map { LidarNode(Double($0.offset), UInt32($0.element * 4), 0, 0) }
+    }
+
+    @Test func nearObjectIsSeparateFromWall() {
+        let nodes = scan([1000, 1000, 1000, 500, 500, 500, 1000, 1000, 1000])
+        let (segments, closed) = Lidar360Plot.segments(nodes, toleranceMM: 30)
+        #expect(segments.map(\.count) == [3, 3, 3])
+        #expect(!closed)
+    }
+
+    @Test func smallNoiseStaysOneSurface() {
+        let nodes = scan([1000, 1010, 995, 1005, 1000])
+        #expect(Lidar360Plot.segments(nodes, toleranceMM: 30).segments.count == 1)
+    }
+
+    @Test func toleranceIncreasesWithRange() {
+        // Beams 1° apart are 87 mm apart at 5 m. The same range step at 5 m is one surface, but not at 0.5 m.
+        let far = (LidarNode(0, 5000 * 4, 0, 0), LidarNode(1, 5100 * 4, 0, 0))
+        let near = (LidarNode(0, 500 * 4, 0, 0), LidarNode(1, 600 * 4, 0, 0))
+        let step = Double.pi / 180
+        #expect(Lidar360Plot.isSameSurface(far.0, far.1, step: step, toleranceMM: 30))
+        #expect(!Lidar360Plot.isSameSurface(near.0, near.1, step: step, toleranceMM: 30))
+    }
+
+    @Test func missingReadingsBreakSurface() {
+        let nodes = [LidarNode(0, 1000 * 4, 0, 0), LidarNode(20, 1000 * 4, 0, 0)]
+        #expect(Lidar360Plot.segments(nodes, toleranceMM: 30).segments.count == 2)
+    }
+
+    @Test func fullRingIsClosed() {
+        let nodes = (0..<360).map { LidarNode(Double($0), 1000 * 4, 0, 0) }
+        let (segments, closed) = Lidar360Plot.segments(nodes, toleranceMM: 30)
+        #expect(segments.count == 1)
+        #expect(closed)
+    }
+
+    @Test func surfaceAcross360IsJoined() {
+        // A near object from 355° to 4°, on a wall at 1 m.
+        let nodes = (0..<360).map { LidarNode(Double($0), ($0 < 5 || $0 >= 355 ? 500 : 1000) * 4, 0, 0) }
+        let (segments, closed) = Lidar360Plot.segments(nodes, toleranceMM: 30)
+        #expect(segments.map(\.count) == [10, 350])
+        #expect(segments.first?.first?.angle ?? 0 > 354)
+        #expect(!closed)
     }
 
     @Test func sampleScanFitsInPlot() {
