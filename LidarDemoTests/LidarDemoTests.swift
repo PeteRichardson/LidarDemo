@@ -237,9 +237,9 @@ struct LidarItemTests {
 
     @Test func itemMovingAwayHasOutwardVelocity() throws {
         var tracker = LidarItemTracker()
-        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
-        let items = tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1)
-        // The item is at 90°, to the right of the lidar, and moved 50 mm in 0.1 s: 500 mm/s before smoothing.
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 500), toleranceMM: 30, time: 0)
+        let items = tracker.items(in: arc(from: 80, count: 21, mm: 550), toleranceMM: 30, time: 0.1)
+        // The item is too large for a rectangle fit. It is at 90°, to the right of the lidar, and moved 50 mm in 0.1 s: 500 mm/s before smoothing.
         let motion = try #require(items.first?.motion)
         #expect(abs(motion.velocity.dx - 500 * LidarItemTracker.velocitySmoothing) < 1)
         #expect(abs(motion.velocity.dy) < 1)
@@ -247,18 +247,18 @@ struct LidarItemTests {
 
     @Test func sameScanAgainKeepsVelocity() throws {
         var tracker = LidarItemTracker()
-        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
-        let first = try #require(tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
-        let again = try #require(tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 500), toleranceMM: 30, time: 0)
+        let first = try #require(tracker.items(in: arc(from: 80, count: 21, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
+        let again = try #require(tracker.items(in: arc(from: 80, count: 21, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
         #expect(again.velocity == first.velocity)
     }
 
     @Test func fastItemKeepsColorFromPrediction() {
         // The second step is 230 mm, more than maxMoveMM. It matches only because the tracker predicts the position from the speed.
         var tracker = LidarItemTracker()
-        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
-        _ = tracker.items(in: arc(from: 88, count: 5, mm: 680), toleranceMM: 30, time: 0.1)
-        let items = tracker.items(in: arc(from: 88, count: 5, mm: 910), toleranceMM: 30, time: 0.2)
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 500), toleranceMM: 30, time: 0)
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 680), toleranceMM: 30, time: 0.1)
+        let items = tracker.items(in: arc(from: 80, count: 21, mm: 910), toleranceMM: 30, time: 0.2)
         #expect(items.map(\.colorIndex) == [0])
     }
 
@@ -327,5 +327,69 @@ struct LidarBackgroundTests {
         let items = tracker.items(in: ring(mm: 1000, except: (10..<20, 500)), toleranceMM: 30, background: background)
         #expect(items.compactMap(\.colorIndex).count == 1)
         #expect(items.first { $0.colorIndex != nil }?.nodes.allSatisfy { $0.dist == 500 } == true)
+    }
+}
+
+struct RectangleFitTests {
+    /// What the lidar sees of a rectangle with this pose: the nearest hit of each beam, with beams `stepDegrees` apart.
+    private func scan(_ pose: RectangleFit.Pose, stepDegrees: Double = 1) -> [CGPoint] {
+        let (u, v) = pose.axes
+        let half = (u: RectangleFit.lengthMM / 2, v: RectangleFit.widthMM / 2)
+        // The lidar's position in the rectangle's frame.
+        let origin = (u: -(pose.center.x * u.dx + pose.center.y * u.dy), v: -(pose.center.x * v.dx + pose.center.y * v.dy))
+        return stride(from: 0.0, to: 360, by: stepDegrees).compactMap { degrees in
+            let radians = degrees * .pi / 180
+            let direction = CGVector(dx: sin(radians), dy: cos(radians))
+            let d = (u: direction.dx * u.dx + direction.dy * u.dy, v: direction.dx * v.dx + direction.dy * v.dy)
+            // Slab method: the beam is inside the rectangle between tNear and tFar.
+            var tNear = -CGFloat.infinity
+            var tFar = CGFloat.infinity
+            for (o, dd, h) in [(origin.u, d.u, half.u), (origin.v, d.v, half.v)] {
+                if abs(dd) < 1e-12 {
+                    if abs(o) > h { return nil }
+                    continue
+                }
+                let t1 = (-h - o) / dd
+                let t2 = (h - o) / dd
+                tNear = max(tNear, min(t1, t2))
+                tFar = min(tFar, max(t1, t2))
+            }
+            guard tNear <= tFar, tNear > 0 else { return nil }
+            return CGPoint(x: direction.dx * tNear, y: direction.dy * tNear)
+        }
+    }
+
+    private func expectClose(_ fitted: RectangleFit.Pose?, _ truth: RectangleFit.Pose, sourceLocation: SourceLocation = #_sourceLocation) {
+        guard let fitted else {
+            Issue.record("No fit", sourceLocation: sourceLocation)
+            return
+        }
+        #expect(hypot(fitted.center.x - truth.center.x, fitted.center.y - truth.center.y) < 3, sourceLocation: sourceLocation)
+        #expect(abs(remainder(fitted.angle - truth.angle, .pi)) < 2 * .pi / 180, sourceLocation: sourceLocation)
+    }
+
+    @Test(arguments: [0.0, 20, 45, 70, 90, 130, 160])
+    func findsPoseWhenTwoFacesAreVisible(degrees: Double) {
+        let truth = RectangleFit.Pose(center: CGPoint(x: 120, y: 300), angle: degrees * .pi / 180)
+        expectClose(RectangleFit.fit(scan(truth, stepDegrees: 0.5)), truth)
+    }
+
+    @Test func findsPoseWhenOnlyLongFaceIsVisible() {
+        // The long side is across the beam, straight in front of the lidar.
+        let truth = RectangleFit.Pose(center: CGPoint(x: 0, y: 300), angle: 0)
+        expectClose(RectangleFit.fit(scan(truth, stepDegrees: 0.5)), truth)
+    }
+
+    @Test func rejectsLargeItem() {
+        let wall = (0..<20).map { CGPoint(x: CGFloat($0) * 10, y: 500) }
+        #expect(RectangleFit.fit(wall) == nil)
+    }
+
+    @Test func smoothingTurnsTheShortWay() {
+        // From 175° to 5° is a 10° turn through 180°, not a 170° turn back.
+        let old = RectangleFit.Pose(center: .zero, angle: 175 * .pi / 180)
+        let measured = RectangleFit.Pose(center: .zero, angle: 5 * .pi / 180)
+        let smoothed = old.smoothed(toward: measured, shift: .zero, weight: 0.5)
+        #expect(abs(smoothed.angle) < 0.001 || abs(smoothed.angle - .pi) < 0.001)
     }
 }

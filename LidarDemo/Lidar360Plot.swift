@@ -140,6 +140,7 @@ struct LidarItem {
     /// Position and speed of a tracked item, in millimetres with the lidar at the origin.
     /// x is to the right of the lidar's arrow, and y is in the direction of the arrow.
     struct Motion {
+        /// Centre of the fitted rectangle if there is one, otherwise the mean of the nodes.
         let centroid: CGPoint
         /// Millimetres per second.
         let velocity: CGVector
@@ -153,6 +154,8 @@ struct LidarItem {
     let colorIndex: Int?
     /// Nil if the item is not tracked.
     var motion: Motion? = nil
+    /// The known cross section of the object, fitted to the nodes. Nil if the item is not tracked, or is too large to be the object.
+    var rectangle: RectangleFit.Pose? = nil
 }
 
 /// Splits each scan into items, and gives a foreground item the same colour index as the nearest item in the previous scan.
@@ -165,11 +168,15 @@ struct LidarItemTracker {
     /// Weight of the newest measured velocity. The centroid moves when the ends of an item change,
     /// so a smaller weight gives a smoother but slower speed.
     static let velocitySmoothing: CGFloat = 0.3
+    /// Weight of the newest rectangle fit. The range noise is as large as the object, so one fit is not accurate.
+    static let rectangleSmoothing: CGFloat = 0.3
 
     private struct Track {
+        /// Centre of the rectangle if there is one, otherwise the mean of the nodes.
         let centroid: CGPoint
         let colorIndex: Int
         let velocity: CGVector
+        let rectangle: RectangleFit.Pose?
     }
 
     private var previous: [Track] = []
@@ -196,18 +203,27 @@ struct LidarItemTracker {
                 return LidarItem(nodes: nodes, colorIndex: nil)
             }
 
-            let centroid = Self.centroid(segment)
+            let points = segment.map(Self.position)
+            let centroid = Self.centroid(points)
             let nearest = unmatched.indices.min { Self.distance(predicted[unmatched[$0]], centroid) < Self.distance(predicted[unmatched[$1]], centroid) }
             let track: Track
             if let nearest, Self.distance(predicted[unmatched[nearest]], centroid) <= Self.maxMoveMM {
                 let old = previous[unmatched.remove(at: nearest)]
-                track = Track(centroid: centroid, colorIndex: old.colorIndex, velocity: Self.smoothed(old, to: centroid, dt: dt))
+                let rectangle = RectangleFit.fit(points).map { measured in
+                    old.rectangle.map {
+                        $0.smoothed(toward: measured, shift: CGVector(dx: old.velocity.dx * dt, dy: old.velocity.dy * dt), weight: Self.rectangleSmoothing)
+                    } ?? measured
+                }
+                let position = rectangle?.center ?? centroid
+                track = Track(centroid: position, colorIndex: old.colorIndex, velocity: Self.smoothed(old, to: position, dt: dt), rectangle: rectangle)
             } else {
-                track = Track(centroid: centroid, colorIndex: nextColorIndex, velocity: .zero)
+                let rectangle = RectangleFit.fit(points)
+                track = Track(centroid: rectangle?.center ?? centroid, colorIndex: nextColorIndex, velocity: .zero, rectangle: rectangle)
                 nextColorIndex += 1
             }
             current.append(track)
-            return LidarItem(nodes: nodes, colorIndex: track.colorIndex, motion: .init(centroid: centroid, velocity: track.velocity))
+            return LidarItem(nodes: nodes, colorIndex: track.colorIndex,
+                             motion: .init(centroid: track.centroid, velocity: track.velocity), rectangle: track.rectangle)
         }
         previous = current
         previousTime = time
@@ -222,12 +238,13 @@ struct LidarItemTracker {
         return CGVector(dx: k * measured.dx + (1 - k) * old.velocity.dx, dy: k * measured.dy + (1 - k) * old.velocity.dy)
     }
 
-    /// Mean position of the nodes in millimetres, with the lidar at the origin.
-    static func centroid(_ nodes: Lidar360Data) -> CGPoint {
-        let points = nodes.map { node in
-            let radians = node.angle * Double.pi / 180
-            return CGPoint(x: node.dist * sin(radians), y: node.dist * cos(radians))
-        }
+    /// Position of the node in millimetres, with the lidar at the origin and y in the direction of the lidar's arrow.
+    static func position(_ node: LidarNode) -> CGPoint {
+        let radians = node.angle * Double.pi / 180
+        return CGPoint(x: node.dist * sin(radians), y: node.dist * cos(radians))
+    }
+
+    static func centroid(_ points: [CGPoint]) -> CGPoint {
         let count = CGFloat(points.count)
         return CGPoint(x: points.map(\.x).reduce(0, +) / count, y: points.map(\.y).reduce(0, +) / count)
     }
@@ -251,6 +268,8 @@ struct LidarItemsView: View {
     static let minArrowSpeed: CGFloat = 100
     /// Length in points of each side of the arrow head.
     static let arrowHeadLength: CGFloat = 8
+    /// The rectangle is a little dimmer than the item's nodes, so that you can see if the fit is wrong.
+    static let rectangleOpacity = 0.55
 
     /// Bright colour for an item. The golden-ratio step makes consecutive items far apart in hue.
     static func color(for colorIndex: Int) -> Color {
@@ -264,6 +283,12 @@ struct LidarItemsView: View {
             let rect = CGRect(origin: .zero, size: size)
             for item in items {
                 let itemColor = item.colorIndex.map(Self.color(for:)) ?? Self.backgroundColor
+                if let rectangle = item.rectangle {
+                    var path = Path()
+                    path.addLines(rectangle.corners.map { plot.toPoint(mm: $0, in: rect) })
+                    path.closeSubpath()
+                    context.stroke(path, with: .color(itemColor.opacity(Self.rectangleOpacity)), lineWidth: 1.5)
+                }
                 for run in Lidar360Plot.rangeRuns(item.nodes, rangeMM: rangeMM) {
                     if run.beyondRange {
                         context.stroke(plot.path(through: run.nodes, in: rect), with: .color(Self.beyondRangeColor))

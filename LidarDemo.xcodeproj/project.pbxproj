@@ -13,6 +13,7 @@
 		C155E32A30A0F0EB00D0A8B1 /* LidarDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */; };
 		C155E32C30A0F25900D0A8B1 /* LidarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E32B30A0F25900D0A8B1 /* LidarModel.swift */; };
 		C155E33930A102CE00D0A8B1 /* LidarBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E33830A102CE00D0A8B1 /* LidarBackground.swift */; };
+		C155E33B30A106F000D0A8B1 /* RectangleFit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C155E33A30A106F000D0A8B1 /* RectangleFit.swift */; };
 		C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7812C876C5A00FE9C5F /* LidarDemoApp.swift */; };
 		C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1BDC7832C876C5A00FE9C5F /* ContentView.swift */; };
 		C1BDC7862C876C5B00FE9C5F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1BDC7852C876C5B00FE9C5F /* Assets.xcassets */; };
@@ -28,7 +29,8 @@
 		C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarDevice.swift; sourceTree = "<group>"; };
 		C155E32B30A0F25900D0A8B1 /* LidarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarModel.swift; sourceTree = "<group>"; };
 		C155E33130A0F2F000D0A8B1 /* LidarDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LidarDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C155E33830A102CE00D0A8B1 /* LidarBackground.swift */ = {isa = PBXFileReference; path = LidarBackground.swift; sourceTree = "<group>"; };
+		C155E33830A102CE00D0A8B1 /* LidarBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarBackground.swift; sourceTree = "<group>"; };
+		C155E33A30A106F000D0A8B1 /* RectangleFit.swift */ = {isa = PBXFileReference; path = RectangleFit.swift; sourceTree = "<group>"; };
 		C1BDC77E2C876C5A00FE9C5F /* LidarDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LidarDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1BDC7812C876C5A00FE9C5F /* LidarDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LidarDemoApp.swift; sourceTree = "<group>"; };
 		C1BDC7832C876C5A00FE9C5F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				C155E32930A0F0EB00D0A8B1 /* LidarDevice.swift */,
 				C155E32B30A0F25900D0A8B1 /* LidarModel.swift */,
 				C155E33830A102CE00D0A8B1 /* LidarBackground.swift */,
+				C155E33A30A106F000D0A8B1 /* RectangleFit.swift */,
 			);
 			path = LidarDemo;
 			sourceTree = "<group>";
@@ -228,6 +231,7 @@
 				C155E33930A102CE00D0A8B1 /* LidarBackground.swift in Sources */,
 				C1BDC7842C876C5A00FE9C5F /* ContentView.swift in Sources */,
 				C1BDC7822C876C5A00FE9C5F /* LidarDemoApp.swift in Sources */,
+				C155E33B30A106F000D0A8B1 /* RectangleFit.swift in Sources */,
 				C1BDC7962C87875400FE9C5F /* Lidar360Data.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
