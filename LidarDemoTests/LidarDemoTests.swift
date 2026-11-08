@@ -235,9 +235,97 @@ struct LidarItemTests {
         #expect(items.map(\.colorIndex) == [0, 1])
     }
 
+    @Test func itemMovingAwayHasOutwardVelocity() throws {
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
+        let items = tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1)
+        // The item is at 90°, to the right of the lidar, and moved 50 mm in 0.1 s: 500 mm/s before smoothing.
+        let motion = try #require(items.first?.motion)
+        #expect(abs(motion.velocity.dx - 500 * LidarItemTracker.velocitySmoothing) < 1)
+        #expect(abs(motion.velocity.dy) < 1)
+    }
+
+    @Test func sameScanAgainKeepsVelocity() throws {
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
+        let first = try #require(tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
+        let again = try #require(tracker.items(in: arc(from: 88, count: 5, mm: 550), toleranceMM: 30, time: 0.1).first?.motion)
+        #expect(again.velocity == first.velocity)
+    }
+
+    @Test func fastItemKeepsColorFromPrediction() {
+        // The second step is 230 mm, more than maxMoveMM. It matches only because the tracker predicts the position from the speed.
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 88, count: 5, mm: 500), toleranceMM: 30, time: 0)
+        _ = tracker.items(in: arc(from: 88, count: 5, mm: 680), toleranceMM: 30, time: 0.1)
+        let items = tracker.items(in: arc(from: 88, count: 5, mm: 910), toleranceMM: 30, time: 0.2)
+        #expect(items.map(\.colorIndex) == [0])
+    }
+
     @Test func singleNodeHasNoColor() {
         var tracker = LidarItemTracker()
         let items = tracker.items(in: [LidarNode(10, 500 * 4, 0, 0)], toleranceMM: 30)
         #expect(items.map(\.colorIndex) == [nil])
+    }
+}
+
+struct LidarBackgroundTests {
+    /// One node at the centre of each 1° bin, at the given range in millimetres.
+    private func ring(mm: Double, except object: (bins: Range<Int>, mm: Double)? = nil) -> Lidar360Data {
+        (0..<360).map { bin in
+            let range = object.map { $0.bins.contains(bin) ? $0.mm : mm } ?? mm
+            return LidarNode(Double(bin) + 0.5, UInt32(range * 4), 0, 0)
+        }
+    }
+
+    /// Learns the scan as one sample. A sample is taken only every `scansPerSample` scans.
+    private func learnSample(_ background: inout LidarBackground, _ scan: Lidar360Data) {
+        for _ in 0..<LidarBackground.scansPerSample {
+            background.learn(scan)
+        }
+    }
+
+    @Test func emptyBackgroundMakesAllForeground() {
+        #expect(LidarBackground().isForeground(LidarNode(10.5, 1000 * 4, 0, 0)))
+    }
+
+    @Test func firstScanIsBackground() {
+        var background = LidarBackground()
+        background.learn(ring(mm: 1000))
+        #expect(!background.isForeground(LidarNode(10.5, 1000 * 4, 0, 0)))
+        #expect(!background.isForeground(LidarNode(10.5, 970 * 4, 0, 0)))  // inside the margin
+    }
+
+    @Test func nearerObjectIsForeground() {
+        var background = LidarBackground()
+        background.learn(ring(mm: 1000))
+        #expect(background.isForeground(LidarNode(10.5, 500 * 4, 0, 0)))
+    }
+
+    @Test func adjacentBinsPreventEdgeFlicker() {
+        // An object at 500 mm in bins 10..<20. Bin 20 is next to the object, so a 500 mm reading there is not foreground.
+        var background = LidarBackground()
+        background.learn(ring(mm: 1000, except: (10..<20, 500)))
+        #expect(!background.isForeground(LidarNode(20.5, 500 * 4, 0, 0)))
+        #expect(background.isForeground(LidarNode(22.5, 500 * 4, 0, 0)))
+    }
+
+    @Test func objectThatStaysBecomesBackground() {
+        var background = LidarBackground()
+        learnSample(&background, ring(mm: 1000))
+        let withObject = ring(mm: 1000, except: (10..<20, 500))
+        for _ in 0..<LidarBackground.sampleCount / 2 {
+            learnSample(&background, withObject)
+        }
+        #expect(!background.isForeground(LidarNode(15.5, 500 * 4, 0, 0)))
+    }
+
+    @Test func backgroundItemsHaveNoColor() {
+        var background = LidarBackground()
+        background.learn(ring(mm: 1000))
+        var tracker = LidarItemTracker()
+        let items = tracker.items(in: ring(mm: 1000, except: (10..<20, 500)), toleranceMM: 30, background: background)
+        #expect(items.compactMap(\.colorIndex).count == 1)
+        #expect(items.first { $0.colorIndex != nil }?.nodes.allSatisfy { $0.dist == 500 } == true)
     }
 }

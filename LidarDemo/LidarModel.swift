@@ -18,15 +18,23 @@ final class LidarModel {
     }
 
     private(set) var scan: Lidar360Data {
-        didSet { updateItems() }
+        didSet {
+            scanTime = ProcessInfo.processInfo.systemUptime
+            background.learn(scan)
+            updateItems()
+        }
     }
-    /// The surfaces in `scan`, each with a colour index that stays with it from scan to scan.
+    /// The surfaces in `scan`. Each foreground item has a colour index that stays with it from scan to scan.
     private(set) var items: [LidarItem] = []
     /// Extra gap in millimetres permitted between neighbours on one surface. Larger values join more points into one item.
     var toleranceMM: CGFloat = 30 {
         didSet { updateItems() }
     }
     @ObservationIgnored private var itemTracker = LidarItemTracker()
+    /// Learns from live scans only, so all of the preview scan is foreground.
+    @ObservationIgnored private var background = LidarBackground()
+    /// Time in seconds when `scan` arrived. The tracker uses it to calculate speeds.
+    @ObservationIgnored private var scanTime: TimeInterval = 0
     private(set) var status: Status = .searching
 
     /// False for Previews: the model shows the given scan and does not open the serial port.
@@ -47,8 +55,15 @@ final class LidarModel {
         updateItems()
     }
 
+    /// Forgets the background and learns it again from the current scan. Use this after the lidar moves.
+    func resetBackground() {
+        background = LidarBackground()
+        background.learn(scan)
+        updateItems()
+    }
+
     private func updateItems() {
-        items = itemTracker.items(in: scan, toleranceMM: toleranceMM)
+        items = itemTracker.items(in: scan, toleranceMM: toleranceMM, background: background, time: scanTime)
     }
 
     /// Xcode Previews and hosted unit tests launch the whole macOS app.

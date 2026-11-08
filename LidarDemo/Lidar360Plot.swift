@@ -77,6 +77,13 @@ struct Lidar360Plot: Shape {
         return (segments, false)
     }
 
+    /// Converts a position in millimetres, with y in the direction of the lidar's arrow, to a point in the rect.
+    /// Unlike `toPoint(_:center:scale:outward:)`, a position beyond the range is not moved to the edge.
+    func toPoint(mm point: CGPoint, in rect: CGRect) -> CGPoint {
+        let scale = min(rect.width, rect.height) / 2 / rangeMM
+        return CGPoint(x: rect.midX + point.x * scale, y: rect.midY - point.y * scale)
+    }
+
     /// Draws the nodes as one connected line, or as a dot if there is only one node.
     /// - Parameter outward: Moves each point this distance in points away from the lidar.
     func path(through nodes: Lidar360Data, in rect: CGRect, outward: CGFloat = 0) -> Path {
@@ -130,44 +137,89 @@ struct Lidar360Plot: Shape {
 
 /// One surface in a scan, probably one object.
 struct LidarItem {
+    /// Position and speed of a tracked item, in millimetres with the lidar at the origin.
+    /// x is to the right of the lidar's arrow, and y is in the direction of the arrow.
+    struct Motion {
+        let centroid: CGPoint
+        /// Millimetres per second.
+        let velocity: CGVector
+
+        var speed: CGFloat { hypot(velocity.dx, velocity.dy) }
+    }
+
     /// Nodes in scan order. For a closed ring, the first node is repeated at the end.
     let nodes: Lidar360Data
-    /// Identifies the colour of the item. Nil for a single node, which is probably noise.
+    /// Identifies the colour of the item. Nil for background, and for a single node, which is probably noise.
     let colorIndex: Int?
+    /// Nil if the item is not tracked.
+    var motion: Motion? = nil
 }
 
-/// Splits each scan into items, and gives an item the same colour index as the nearest item in the previous scan.
-/// An item that is hidden and then seen again gets a new colour.
+/// Splits each scan into items, and gives a foreground item the same colour index as the nearest item in the previous scan.
+/// Also calculates the speed of each item. An item that is hidden and then seen again gets a new colour.
 struct LidarItemTracker {
-    /// An item that moves farther than this between two scans is a new item.
+    /// An item that is farther than this from its predicted position is a new item.
     static let maxMoveMM: CGFloat = 200
+    /// An item is foreground if at least this fraction of its nodes are foreground.
+    static let minForegroundFraction = 0.5
+    /// Weight of the newest measured velocity. The centroid moves when the ends of an item change,
+    /// so a smaller weight gives a smoother but slower speed.
+    static let velocitySmoothing: CGFloat = 0.3
 
-    private var previous: [(centroid: CGPoint, colorIndex: Int)] = []
+    private struct Track {
+        let centroid: CGPoint
+        let colorIndex: Int
+        let velocity: CGVector
+    }
+
+    private var previous: [Track] = []
+    private var previousTime: TimeInterval?
     private var nextColorIndex = 0
 
-    mutating func items(in scan: Lidar360Data, toleranceMM: CGFloat) -> [LidarItem] {
+    /// - Parameters:
+    ///   - background: The default has no samples, so all items are foreground.
+    ///   - time: Time of the scan in seconds. Use the same time again for the same scan, for example after a change to `toleranceMM`.
+    mutating func items(
+        in scan: Lidar360Data, toleranceMM: CGFloat, background: LidarBackground = LidarBackground(), time: TimeInterval = 0
+    ) -> [LidarItem] {
         let (segments, closed) = Lidar360Plot.segments(scan, toleranceMM: toleranceMM)
-        var unmatched = previous
-        var current: [(centroid: CGPoint, colorIndex: Int)] = []
+        let dt = previousTime.map { time - $0 } ?? 0
+        // Where each previous item is probably now, if its speed did not change.
+        let predicted = previous.map { CGPoint(x: $0.centroid.x + $0.velocity.dx * dt, y: $0.centroid.y + $0.velocity.dy * dt) }
+        var unmatched = Array(previous.indices)
+        var current: [Track] = []
 
         let items = segments.map { segment -> LidarItem in
             let nodes = closed ? segment + segment.prefix(1) : segment
-            guard segment.count > 1 else { return LidarItem(nodes: nodes, colorIndex: nil) }
+            let foregroundCount = segment.count(where: background.isForeground)
+            guard segment.count > 1, Double(foregroundCount) >= Self.minForegroundFraction * Double(segment.count) else {
+                return LidarItem(nodes: nodes, colorIndex: nil)
+            }
 
             let centroid = Self.centroid(segment)
-            let nearest = unmatched.indices.min { Self.distance(unmatched[$0].centroid, centroid) < Self.distance(unmatched[$1].centroid, centroid) }
-            let colorIndex: Int
-            if let nearest, Self.distance(unmatched[nearest].centroid, centroid) <= Self.maxMoveMM {
-                colorIndex = unmatched.remove(at: nearest).colorIndex
+            let nearest = unmatched.indices.min { Self.distance(predicted[unmatched[$0]], centroid) < Self.distance(predicted[unmatched[$1]], centroid) }
+            let track: Track
+            if let nearest, Self.distance(predicted[unmatched[nearest]], centroid) <= Self.maxMoveMM {
+                let old = previous[unmatched.remove(at: nearest)]
+                track = Track(centroid: centroid, colorIndex: old.colorIndex, velocity: Self.smoothed(old, to: centroid, dt: dt))
             } else {
-                colorIndex = nextColorIndex
+                track = Track(centroid: centroid, colorIndex: nextColorIndex, velocity: .zero)
                 nextColorIndex += 1
             }
-            current.append((centroid, colorIndex))
-            return LidarItem(nodes: nodes, colorIndex: colorIndex)
+            current.append(track)
+            return LidarItem(nodes: nodes, colorIndex: track.colorIndex, motion: .init(centroid: centroid, velocity: track.velocity))
         }
         previous = current
+        previousTime = time
         return items
+    }
+
+    /// Mixes the velocity measured since the previous scan into the previous velocity.
+    private static func smoothed(_ old: Track, to centroid: CGPoint, dt: TimeInterval) -> CGVector {
+        guard dt > 0 else { return old.velocity }
+        let measured = CGVector(dx: (centroid.x - old.centroid.x) / dt, dy: (centroid.y - old.centroid.y) / dt)
+        let k = velocitySmoothing
+        return CGVector(dx: k * measured.dx + (1 - k) * old.velocity.dx, dy: k * measured.dy + (1 - k) * old.velocity.dy)
     }
 
     /// Mean position of the nodes in millimetres, with the lidar at the origin.
@@ -185,13 +237,20 @@ struct LidarItemTracker {
     }
 }
 
-/// Draws each item in its own bright colour. Parts beyond the range are dim.
+/// Draws each foreground item in its own bright colour, with an arrow that shows its speed and direction.
+/// Background and parts beyond the range are dim.
 struct LidarItemsView: View {
     let items: [LidarItem]
     let rangeMM: CGFloat
 
     static let beyondRangeColor = Color.white.opacity(0.25)
-    static let singleNodeColor = Color.gray
+    static let backgroundColor = Color.white.opacity(0.4)
+    /// The arrow points to where the item will be after this time, in seconds.
+    static let arrowSeconds: CGFloat = 0.5
+    /// Items slower than this, in millimetres per second, have no arrow. This hides the movement that noise causes.
+    static let minArrowSpeed: CGFloat = 100
+    /// Length in points of each side of the arrow head.
+    static let arrowHeadLength: CGFloat = 8
 
     /// Bright colour for an item. The golden-ratio step makes consecutive items far apart in hue.
     static func color(for colorIndex: Int) -> Color {
@@ -204,7 +263,7 @@ struct LidarItemsView: View {
             let plot = Lidar360Plot(nodes: [], rangeMM: rangeMM)
             let rect = CGRect(origin: .zero, size: size)
             for item in items {
-                let itemColor = item.colorIndex.map(Self.color(for:)) ?? Self.singleNodeColor
+                let itemColor = item.colorIndex.map(Self.color(for:)) ?? Self.backgroundColor
                 for run in Lidar360Plot.rangeRuns(item.nodes, rangeMM: rangeMM) {
                     if run.beyondRange {
                         context.stroke(plot.path(through: run.nodes, in: rect), with: .color(Self.beyondRangeColor))
@@ -216,7 +275,36 @@ struct LidarItemsView: View {
                         }
                     }
                 }
+                if let motion = item.motion {
+                    drawArrow(motion, color: itemColor, plot: plot, rect: rect, in: &context)
+                }
             }
         }
+    }
+
+    private func drawArrow(_ motion: LidarItem.Motion, color: Color, plot: Lidar360Plot, rect: CGRect, in context: inout GraphicsContext) {
+        guard motion.speed >= Self.minArrowSpeed, hypot(motion.centroid.x, motion.centroid.y) < rangeMM else { return }
+
+        let tipMM = CGPoint(x: motion.centroid.x + motion.velocity.dx * Self.arrowSeconds,
+                            y: motion.centroid.y + motion.velocity.dy * Self.arrowSeconds)
+        let start = plot.toPoint(mm: motion.centroid, in: rect)
+        let tip = plot.toPoint(mm: tipMM, in: rect)
+
+        // Two short lines back from the tip, at 25° to each side of the shaft.
+        let back = atan2(start.y - tip.y, start.x - tip.x)
+        let side = 25 * Double.pi / 180
+        var path = Path()
+        path.move(to: start)
+        path.addLine(to: tip)
+        for angle in [back - side, back + side] {
+            path.move(to: tip)
+            path.addLine(to: CGPoint(x: tip.x + Self.arrowHeadLength * cos(angle), y: tip.y + Self.arrowHeadLength * sin(angle)))
+        }
+        context.stroke(path, with: .color(color), lineWidth: 1.5)
+
+        let label = Text(String(format: "%.2f m/s", motion.speed / 1000)).font(.caption2).foregroundStyle(color)
+        // Put the label past the tip, so that it does not cover the arrow.
+        let labelPoint = CGPoint(x: tip.x - 14 * cos(back), y: tip.y - 14 * sin(back))
+        context.draw(label, at: labelPoint)
     }
 }

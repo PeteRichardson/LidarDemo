@@ -35,8 +35,13 @@ struct ContentView: View {
                     Text(String(format: "%.0f mm", model.toleranceMM))
                         .monospacedDigit()
                 }
-                Text(statusText)
-                    .font(.caption)
+                HStack {
+                    Text(statusText)
+                        .font(.caption)
+                    Button("Reset background") {
+                        model.resetBackground()
+                    }
+                }
                 Text("Lidar Data")
                     .textScale(.default)
                     .font(.largeTitle)
