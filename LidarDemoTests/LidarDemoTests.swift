@@ -254,12 +254,49 @@ struct LidarItemTests {
     }
 
     @Test func fastItemKeepsColorFromPrediction() {
-        // The second step is 230 mm, more than maxMoveMM. It matches only because the tracker predicts the position from the speed.
+        // The second step is 89 mm, more than the 80 mm match distance. It matches only because the tracker predicts the position from the speed.
         var tracker = LidarItemTracker()
         _ = tracker.items(in: arc(from: 80, count: 21, mm: 500), toleranceMM: 30, time: 0)
-        _ = tracker.items(in: arc(from: 80, count: 21, mm: 680), toleranceMM: 30, time: 0.1)
-        let items = tracker.items(in: arc(from: 80, count: 21, mm: 910), toleranceMM: 30, time: 0.2)
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 570), toleranceMM: 30, time: 0.1)
+        let items = tracker.items(in: arc(from: 80, count: 21, mm: 660), toleranceMM: 30, time: 0.2)
         #expect(items.map(\.colorIndex) == [0])
+    }
+
+    @Test func largeJumpIsNewItem() {
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 80, count: 21, mm: 500), toleranceMM: 30, time: 0)
+        let items = tracker.items(in: arc(from: 80, count: 21, mm: 650), toleranceMM: 30, time: 0.1)
+        #expect(items.map(\.colorIndex) == [1])
+    }
+
+    @Test func brokenItemKeepsOneColor() throws {
+        var tracker = LidarItemTracker()
+        _ = tracker.items(in: arc(from: 85, count: 11, mm: 500), toleranceMM: 30, time: 0)
+        // The same item, but the far part is 90 mm behind the near part, so the item breaks into two lines.
+        let items = tracker.items(in: arc(from: 85, count: 5, mm: 500) + arc(from: 90, count: 6, mm: 590), toleranceMM: 30, time: 0.1)
+        try #require(items.count == 2)
+        #expect(items.map(\.colorIndex) == [0, 0])
+        // The motion and the rectangle are on one part only, so they are drawn one time.
+        #expect(items.count { $0.motion != nil } == 1)
+    }
+
+    @Test func missingItemKeepsColorForAShortTime() {
+        var tracker = LidarItemTracker()
+        let item = arc(from: 80, count: 21, mm: 500)
+        _ = tracker.items(in: item, toleranceMM: 30, time: 0)
+        _ = tracker.items(in: [], toleranceMM: 30, time: 0.1)
+        _ = tracker.items(in: [], toleranceMM: 30, time: 0.2)
+        #expect(tracker.items(in: item, toleranceMM: 30, time: 0.3).map(\.colorIndex) == [0])
+    }
+
+    @Test func itemMissingForLongerGetsNewColor() {
+        var tracker = LidarItemTracker()
+        let item = arc(from: 80, count: 21, mm: 500)
+        _ = tracker.items(in: item, toleranceMM: 30, time: 0)
+        _ = tracker.items(in: [], toleranceMM: 30, time: 0.1)
+        let later = 0.1 + LidarItemTracker.maxMissingSeconds + 0.1
+        _ = tracker.items(in: [], toleranceMM: 30, time: later)
+        #expect(tracker.items(in: item, toleranceMM: 30, time: later + 0.1).map(\.colorIndex) == [1])
     }
 
     @Test func singleNodeHasNoColor() {

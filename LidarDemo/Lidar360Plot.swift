@@ -158,11 +158,19 @@ struct LidarItem {
     var rectangle: RectangleFit.Pose? = nil
 }
 
-/// Splits each scan into items, and gives a foreground item the same colour index as the nearest item in the previous scan.
-/// Also calculates the speed of each item. An item that is hidden and then seen again gets a new colour.
+/// Splits each scan into items, and gives a foreground item the same colour index as the matching item in the previous scan.
+/// Also calculates the speed of each item. The tracker keeps a missing item for `maxMissingSeconds`, so an item
+/// that is missing from a few scans keeps its colour. An item that is missing for longer gets a new colour.
 struct LidarItemTracker {
-    /// An item that is farther than this from its predicted position is a new item.
-    static let maxMoveMM: CGFloat = 200
+    /// An item matches a previous item if it is within this distance of the predicted position.
+    /// The prediction includes the speed, so this distance is for range noise and for changes in the visible faces.
+    static let matchRadiusMM: CGFloat = 60
+    /// Increase of the match distance for each second since the scan that last contained the item.
+    /// This is the largest change in speed that the tracker expects, in millimetres per second.
+    static let maxSpeedChangeMMPerSecond: CGFloat = 200
+    /// A left-over part with a point this near to a point of an item in the same scan is part of that item.
+    /// For example, noise can break one item into two lines.
+    static let partGapMM: CGFloat = 100
     /// An item is foreground if at least this fraction of its nodes are foreground.
     static let minForegroundFraction = 0.5
     /// Weight of the newest measured velocity. The centroid moves when the ends of an item change,
@@ -170,6 +178,9 @@ struct LidarItemTracker {
     static let velocitySmoothing: CGFloat = 0.3
     /// Weight of the newest rectangle fit. The range noise is as large as the object, so one fit is not accurate.
     static let rectangleSmoothing: CGFloat = 0.3
+    /// Time in seconds that the tracker keeps an item that is not in the scan.
+    /// A new item near the predicted position of a missing item is probably the same item.
+    static let maxMissingSeconds: TimeInterval = 1
 
     private struct Track {
         /// Centre of the rectangle if there is one, otherwise the mean of the nodes.
@@ -177,10 +188,29 @@ struct LidarItemTracker {
         let colorIndex: Int
         let velocity: CGVector
         let rectangle: RectangleFit.Pose?
+        /// Time of the last scan that contained the item.
+        let time: TimeInterval
+
+        func predicted(at time: TimeInterval) -> CGPoint {
+            let dt = time - self.time
+            return CGPoint(x: centroid.x + velocity.dx * dt, y: centroid.y + velocity.dy * dt)
+        }
+
+        func matchRadius(at time: TimeInterval) -> CGFloat {
+            LidarItemTracker.matchRadiusMM + LidarItemTracker.maxSpeedChangeMMPerSecond * (time - self.time)
+        }
     }
 
+    /// A foreground segment of the current scan.
+    private struct Part {
+        let segment: Int
+        let points: [CGPoint]
+        /// Centre of the fitted rectangle if there is one, otherwise the mean of the points.
+        let position: CGPoint
+    }
+
+    /// Items from the previous scan, and missing items that the tracker still keeps.
     private var previous: [Track] = []
-    private var previousTime: TimeInterval?
     private var nextColorIndex = 0
 
     /// - Parameters:
@@ -190,44 +220,98 @@ struct LidarItemTracker {
         in scan: Lidar360Data, toleranceMM: CGFloat, background: LidarBackground = LidarBackground(), time: TimeInterval = 0
     ) -> [LidarItem] {
         let (segments, closed) = Lidar360Plot.segments(scan, toleranceMM: toleranceMM)
-        let dt = previousTime.map { time - $0 } ?? 0
-        // Where each previous item is probably now, if its speed did not change.
-        let predicted = previous.map { CGPoint(x: $0.centroid.x + $0.velocity.dx * dt, y: $0.centroid.y + $0.velocity.dy * dt) }
-        var unmatched = Array(previous.indices)
-        var current: [Track] = []
 
-        let items = segments.map { segment -> LidarItem in
-            let nodes = closed ? segment + segment.prefix(1) : segment
+        var parts: [Part] = []
+        for (index, segment) in segments.enumerated() {
             let foregroundCount = segment.count(where: background.isForeground)
-            guard segment.count > 1, Double(foregroundCount) >= Self.minForegroundFraction * Double(segment.count) else {
-                return LidarItem(nodes: nodes, colorIndex: nil)
-            }
-
+            guard segment.count > 1, Double(foregroundCount) >= Self.minForegroundFraction * Double(segment.count) else { continue }
             let points = segment.map(Self.position)
-            let centroid = Self.centroid(points)
-            let nearest = unmatched.indices.min { Self.distance(predicted[unmatched[$0]], centroid) < Self.distance(predicted[unmatched[$1]], centroid) }
-            let track: Track
-            if let nearest, Self.distance(predicted[unmatched[nearest]], centroid) <= Self.maxMoveMM {
-                let old = previous[unmatched.remove(at: nearest)]
-                let rectangle = RectangleFit.fit(points).map { measured in
-                    old.rectangle.map {
-                        $0.smoothed(toward: measured, shift: CGVector(dx: old.velocity.dx * dt, dy: old.velocity.dy * dt), weight: Self.rectangleSmoothing)
-                    } ?? measured
+            parts.append(Part(segment: index, points: points, position: RectangleFit.fit(points)?.center ?? Self.centroid(points)))
+        }
+
+        // Each group is one item: the previous track that it matches (nil for a new item) and its parts.
+        var groups: [(track: Int?, parts: [Int])] = []
+        var groupOfPart = [Int?](repeating: nil, count: parts.count)
+
+        // 1. Match parts to previous items, closest pairs first, so that a farther part cannot take a near match.
+        var pairs: [(part: Int, track: Int, distance: CGFloat)] = []
+        for p in parts.indices {
+            for t in previous.indices {
+                let distance = Self.distance(previous[t].predicted(at: time), parts[p].position)
+                if distance <= previous[t].matchRadius(at: time) {
+                    pairs.append((p, t, distance))
                 }
-                let position = rectangle?.center ?? centroid
-                track = Track(centroid: position, colorIndex: old.colorIndex, velocity: Self.smoothed(old, to: position, dt: dt), rectangle: rectangle)
-            } else {
-                let rectangle = RectangleFit.fit(points)
-                track = Track(centroid: rectangle?.center ?? centroid, colorIndex: nextColorIndex, velocity: .zero, rectangle: rectangle)
-                nextColorIndex += 1
             }
-            current.append(track)
+        }
+        var matchedTracks = Set<Int>()
+        for pair in pairs.sorted(by: { $0.distance < $1.distance })
+        where groupOfPart[pair.part] == nil && !matchedTracks.contains(pair.track) {
+            matchedTracks.insert(pair.track)
+            groupOfPart[pair.part] = groups.count
+            groups.append((pair.track, [pair.part]))
+        }
+
+        // 2. A left-over part near an item of this scan is part of that item. Otherwise it is a new item.
+        for p in parts.indices where groupOfPart[p] == nil {
+            let gaps = groups.indices.map { g in
+                groups[g].parts.map { Self.nearestGap(parts[p].points, parts[$0].points) }.min() ?? .infinity
+            }
+            if let g = gaps.indices.min(by: { gaps[$0] < gaps[$1] }), gaps[g] <= Self.partGapMM {
+                groups[g].parts.append(p)
+                groupOfPart[p] = g
+            } else {
+                groupOfPart[p] = groups.count
+                groups.append((nil, [p]))
+            }
+        }
+
+        // 3. Update each item from the points of all of its parts.
+        let current = groups.map { group in
+            track(from: group.parts.flatMap { parts[$0].points }, old: group.track.map { previous[$0] }, time: time)
+        }
+
+        // 4. Only the first part of an item has the motion and the rectangle, so that they are drawn one time.
+        var partOfSegment = [Int?](repeating: nil, count: segments.count)
+        for p in parts.indices {
+            partOfSegment[parts[p].segment] = p
+        }
+        let items = segments.indices.map { index -> LidarItem in
+            let nodes = closed ? segments[index] + segments[index].prefix(1) : segments[index]
+            guard let p = partOfSegment[index], let g = groupOfPart[p] else { return LidarItem(nodes: nodes, colorIndex: nil) }
+            let track = current[g]
+            guard groups[g].parts.first == p else { return LidarItem(nodes: nodes, colorIndex: track.colorIndex) }
             return LidarItem(nodes: nodes, colorIndex: track.colorIndex,
                              motion: .init(centroid: track.centroid, velocity: track.velocity), rectangle: track.rectangle)
         }
-        previous = current
-        previousTime = time
+
+        // Keep the missing items for a short time. They are not drawn.
+        let missing = previous.indices.filter { !matchedTracks.contains($0) }.map { previous[$0] }
+        previous = current + missing.filter { time - $0.time <= Self.maxMissingSeconds }
         return items
+    }
+
+    /// The track for an item in this scan. `old` is the matching previous track, or nil for a new item.
+    private mutating func track(from points: [CGPoint], old: Track?, time: TimeInterval) -> Track {
+        let centroid = Self.centroid(points)
+        let measured = RectangleFit.fit(points)
+        guard let old else {
+            defer { nextColorIndex += 1 }
+            return Track(centroid: measured?.center ?? centroid, colorIndex: nextColorIndex, velocity: .zero, rectangle: measured, time: time)
+        }
+        let dt = time - old.time
+        let rectangle = measured.map { measured in
+            old.rectangle.map {
+                $0.smoothed(toward: measured, shift: CGVector(dx: old.velocity.dx * dt, dy: old.velocity.dy * dt), weight: Self.rectangleSmoothing)
+            } ?? measured
+        }
+        let position = rectangle?.center ?? centroid
+        return Track(centroid: position, colorIndex: old.colorIndex, velocity: Self.smoothed(old, to: position, dt: dt),
+                     rectangle: rectangle, time: time)
+    }
+
+    /// Smallest distance between a point of `a` and a point of `b`.
+    private static func nearestGap(_ a: [CGPoint], _ b: [CGPoint]) -> CGFloat {
+        a.flatMap { p in b.map { distance(p, $0) } }.min() ?? .infinity
     }
 
     /// Mixes the velocity measured since the previous scan into the previous velocity.
