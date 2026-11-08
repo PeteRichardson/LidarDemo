@@ -365,6 +365,7 @@ struct LidarItemsView: View {
         Canvas { context, size in
             let plot = Lidar360Plot(nodes: [], rangeMM: rangeMM)
             let rect = CGRect(origin: .zero, size: size)
+            drawLidar(in: rect, context: &context)
             for item in items {
                 let itemColor = item.colorIndex.map(Self.color(for:)) ?? Self.backgroundColor
                 if let rectangle = item.rectangle {
@@ -389,6 +390,50 @@ struct LidarItemsView: View {
                 }
             }
         }
+    }
+
+    /// Smallest width in points of the lidar drawing, so that it stays visible at a long range.
+    static let minLidarWidth: CGFloat = 36
+    static let lidarColor = Color.white.opacity(0.6)
+
+    /// Outline of the RPLIDAR C1 seen from above, at the centre of the plot and with its arrow at 0°.
+    /// The sizes are in millimetres. The drawing is at true size, but not smaller than `minLidarWidth`.
+    private func drawLidar(in rect: CGRect, context: inout GraphicsContext) {
+        let baseSize: CGFloat = 55
+        let scale = max(min(rect.width, rect.height) / 2 / rangeMM, Self.minLidarWidth / baseSize)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        // Millimetres from the lidar's centre, with y in the direction of the arrow, to a point in the view.
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: center.x + x * scale, y: center.y - y * scale)
+        }
+        func circle(_ x: CGFloat, _ y: CGFloat, radius: CGFloat) -> Path {
+            let c = point(x, y)
+            let r = radius * scale
+            return Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+        }
+
+        var path = Path()
+        // Square base with rounded corners, and the four screws that are not under the cap.
+        let half = baseSize / 2 * scale
+        path.addRoundedRect(in: CGRect(x: center.x - half, y: center.y - half, width: 2 * half, height: 2 * half),
+                            cornerSize: CGSize(width: 6 * scale, height: 6 * scale))
+        for (x, y) in [(-19.5, 22.0), (19.5, 22.0), (-19.5, -22.0), (19.5, -22.0)] {
+            path.addPath(circle(x, y, radius: 2))
+        }
+        // Rotating cap, 50.4 mm across, with the inner circle on its top.
+        path.addPath(circle(0, 0, radius: 25.2))
+        path.addPath(circle(0, 0, radius: 11.5))
+        // Block arrow between the inner circle and the rim, pointing to 0°.
+        path.addLines([point(-1.5, 13.5), point(1.5, 13.5), point(1.5, 18.5), point(3.5, 18.5),
+                       point(0, 23), point(-3.5, 18.5), point(-1.5, 18.5)])
+        path.closeSubpath()
+        // Cable out of the back of the base.
+        path.move(to: point(-2.5, -27.5))
+        path.addLine(to: point(-2.5, -33))
+        path.move(to: point(2.5, -27.5))
+        path.addLine(to: point(2.5, -33))
+
+        context.stroke(path, with: .color(Self.lidarColor), lineWidth: 1)
     }
 
     private func drawArrow(_ motion: LidarItem.Motion, color: Color, plot: Lidar360Plot, rect: CGRect, in context: inout GraphicsContext) {

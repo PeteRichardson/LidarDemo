@@ -17,74 +17,52 @@ struct ContentView: View {
     }
 
     var body: some View {
-        GeometryReader { windowGeometry in
-            VStack {
-                LidarItemsView(items: model.items, rangeMM: rangeMM)
-                    .aspectRatio(1, contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .border(Color.white, width: 1)
-                HStack {
-                    Text("Range")
-                    Slider(value: $rangeMM, in: 500...12000)
-                    Text(String(format: "%.1f m", rangeMM / 1000))
-                        .monospacedDigit()
-                }
-                HStack {
-                    Text("Gap tolerance")
-                    Slider(value: $model.toleranceMM, in: 0...200)
-                    Text(String(format: "%.0f mm", model.toleranceMM))
-                        .monospacedDigit()
-                }
-                HStack {
-                    Text(statusText)
-                        .font(.caption)
-                    Button("Reset background") {
-                        model.resetBackground()
-                    }
-                }
-                deviceInfoView
-                Text("Lidar Data")
-                    .textScale(.default)
-                    .font(.largeTitle)
-                    .font(.system(size: min(windowGeometry.size.width, windowGeometry.size.height) * 0.075))
-                    .padding()
+        VStack {
+            LidarItemsView(items: model.items, rangeMM: rangeMM)
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .border(Color.white, width: 1)
+            HStack {
+                Text("Range")
+                Slider(value: $rangeMM, in: 500...12000)
+                Text(String(format: "%.1f m", rangeMM / 1000))
+                    .monospacedDigit()
             }
-            .padding()
-            .foregroundColor(Color.white)
-            .background(Color.black)
+            HStack {
+                Text("Gap tolerance")
+                Slider(value: $model.toleranceMM, in: 0...200)
+                Text(String(format: "%.0f mm", model.toleranceMM))
+                    .monospacedDigit()
+            }
+            HStack {
+                Text(statusText)
+                    .font(.caption)
+                Button("Reset background") {
+                    model.resetBackground()
+                }
+            }
+            deviceInfoView
         }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundColor(Color.white)
+        .background(Color.black)
         .task {
             await model.run()
         }
     }
 
-    /// Make, model, firmware, hardware and serial number of the lidar. A dash until the lidar replies.
+    /// Make, model, firmware, hardware and serial number of the lidar, on one small line.
     private var deviceInfoView: some View {
-        let info = model.deviceInfo
-        return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 2) {
-            GridRow {
-                Text("Make")
-                Text(RPLidarDeviceInfo.make)
-            }
-            GridRow {
-                Text("Model")
-                Text(info?.modelText ?? "—")
-            }
-            GridRow {
-                Text("Firmware")
-                Text(info?.firmwareText ?? "—")
-            }
-            GridRow {
-                Text("Hardware")
-                Text(info.map { String($0.hardware) } ?? "—")
-            }
-            GridRow {
-                Text("Serial number")
-                Text(info?.serialNumberText ?? "—")
-                    .monospaced()
-            }
-        }
-        .font(.caption)
+        let make = RPLidarDeviceInfo.make
+        let text = model.deviceInfo.map {
+            "\(make) \($0.modelText) · Firmware \($0.firmwareText) · Hardware \($0.hardware) · S/N \($0.serialNumberText)"
+        } ?? "\(make) · No device info yet"
+        return Text(text)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     private var statusText: String {
