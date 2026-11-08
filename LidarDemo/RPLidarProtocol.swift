@@ -66,10 +66,24 @@ struct RPLidarDeviceInfo: CustomStringConvertible {
         serialNumber = Array(b[4..<20])
     }
 
+    /// The protocol does not report the make. All RPLIDAR devices are made by Slamtec.
+    static let make = "Slamtec"
+
+    /// Model names for the model codes that this app knows.
+    static let modelNames: [UInt8: String] = [0x41: "RPLIDAR C1"]
+
+    /// The model name and code, or only the code if the name is not known.
+    var modelText: String {
+        let code = String(format: "0x%02X", model)
+        return Self.modelNames[model].map { "\($0) (\(code))" } ?? code
+    }
+
+    var firmwareText: String { String(format: "%d.%02d", firmwareMajor, firmwareMinor) }
+
+    var serialNumberText: String { serialNumber.map { String(format: "%02X", $0) }.joined() }
+
     var description: String {
-        let serial = serialNumber.map { String(format: "%02X", $0) }.joined()
-        return String(format: "model 0x%02X, firmware %d.%02d, hardware %d, serial %@",
-                      model, firmwareMajor, firmwareMinor, hardware, serial)
+        "model \(modelText), firmware \(firmwareText), hardware \(hardware), serial \(serialNumberText)"
     }
 }
 

@@ -36,6 +36,8 @@ final class LidarModel {
     /// Time in seconds when `scan` arrived. The tracker uses it to calculate speeds.
     @ObservationIgnored private var scanTime: TimeInterval = 0
     private(set) var status: Status = .searching
+    /// Info from the connected lidar. Nil until the lidar replies to GET_INFO.
+    private(set) var deviceInfo: RPLidarDeviceInfo?
 
     /// False for Previews: the model shows the given scan and does not open the serial port.
     private let isLive: Bool
@@ -82,8 +84,11 @@ final class LidarModel {
             if let path = SerialPortFinder.calloutPath() {
                 status = .connected(path)
                 do {
-                    for try await newScan in LidarDevice(path: path).scans() {
-                        scan = newScan
+                    for try await event in LidarDevice(path: path).events() {
+                        switch event {
+                        case .info(let info): deviceInfo = info
+                        case .scan(let newScan): scan = newScan
+                        }
                     }
                 } catch {
                     status = .error(String(describing: error))

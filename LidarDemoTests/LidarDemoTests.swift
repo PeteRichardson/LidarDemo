@@ -48,6 +48,20 @@ struct RPLidarProtocolTests {
         #expect(RPLidarResponseDescriptor(bytes: [0xA5, 0x5A, 0x05]) == nil)
     }
 
+    @Test func deviceInfo() throws {
+        let bytes: [UInt8] = [0x41, 0x01, 0x01, 18] + Array(0..<16)
+        let info = try #require(RPLidarDeviceInfo(bytes: bytes))
+        #expect(info.modelText == "RPLIDAR C1 (0x41)")
+        #expect(info.firmwareText == "1.01")
+        #expect(info.hardware == 18)
+        #expect(info.serialNumberText == "000102030405060708090A0B0C0D0E0F")
+    }
+
+    @Test func unknownModelShowsCode() throws {
+        let info = try #require(RPLidarDeviceInfo(bytes: [0x99] + [UInt8](repeating: 0, count: 19)))
+        #expect(info.modelText == "0x99")
+    }
+
     @Test func decodeNode() throws {
         let decoded = try #require(RPLidarScanNode.decode(node(start: true, degrees: 90, mm: 1000)))
         #expect(decoded.isStartOfScan)

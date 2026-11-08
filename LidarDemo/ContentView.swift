@@ -42,6 +42,7 @@ struct ContentView: View {
                         model.resetBackground()
                     }
                 }
+                deviceInfoView
                 Text("Lidar Data")
                     .textScale(.default)
                     .font(.largeTitle)
@@ -55,6 +56,35 @@ struct ContentView: View {
         .task {
             await model.run()
         }
+    }
+
+    /// Make, model, firmware, hardware and serial number of the lidar. A dash until the lidar replies.
+    private var deviceInfoView: some View {
+        let info = model.deviceInfo
+        return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 2) {
+            GridRow {
+                Text("Make")
+                Text(RPLidarDeviceInfo.make)
+            }
+            GridRow {
+                Text("Model")
+                Text(info?.modelText ?? "—")
+            }
+            GridRow {
+                Text("Firmware")
+                Text(info?.firmwareText ?? "—")
+            }
+            GridRow {
+                Text("Hardware")
+                Text(info.map { String($0.hardware) } ?? "—")
+            }
+            GridRow {
+                Text("Serial number")
+                Text(info?.serialNumberText ?? "—")
+                    .monospaced()
+            }
+        }
+        .font(.caption)
     }
 
     private var statusText: String {

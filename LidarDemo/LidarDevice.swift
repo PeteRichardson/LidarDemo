@@ -20,6 +20,12 @@ enum LidarDeviceError: Error, CustomStringConvertible {
 
 /// Reads continuous scans from a Slamtec RPLIDAR C1 on a serial port.
 final class LidarDevice: Sendable {
+    enum Event {
+        /// The device info from GET_INFO. Comes one time, before the first scan.
+        case info(RPLidarDeviceInfo)
+        case scan(Lidar360Data)
+    }
+
     static let baudRate = 460_800
 
     let path: String
@@ -29,9 +35,9 @@ final class LidarDevice: Sendable {
         self.path = path
     }
 
-    /// One `Lidar360Data` for each revolution, about 10 per second.
+    /// The device info, then one `Lidar360Data` for each revolution, about 10 per second.
     /// When the caller stops the iteration, the lidar gets STOP and the port closes.
-    func scans() -> AsyncThrowingStream<Lidar360Data, Error> {
+    func events() -> AsyncThrowingStream<Event, Error> {
         let path = self.path
         let isCancelled = OSAllocatedUnfairLock(initialState: false)
 
@@ -49,14 +55,16 @@ final class LidarDevice: Sendable {
                         Thread.sleep(forTimeInterval: 0.01)
                         port.close()
                     }
-                    try Self.startScan(on: port)
+                    if let info = try Self.startScan(on: port) {
+                        continuation.yield(.info(info))
+                    }
 
                     var assembler = ScanAssembler()
                     var buffer = [UInt8](repeating: 0, count: 4096)
                     while !isCancelled.withLock({ $0 }) {
                         let count = try port.read(into: &buffer)
                         for scan in assembler.append(buffer[0..<count]) {
-                            continuation.yield(scan)
+                            continuation.yield(.scan(scan))
                         }
                     }
                     continuation.finish()
@@ -71,8 +79,9 @@ final class LidarDevice: Sendable {
         }
     }
 
-    /// Stops any scan that is in progress, logs the device info, then starts a standard SCAN.
-    private static func startScan(on port: SerialPort) throws {
+    /// Stops any scan that is in progress, reads the device info, then starts a standard SCAN.
+    /// - Returns: The device info, or nil if the info reply was not valid.
+    private static func startScan(on port: SerialPort) throws -> RPLidarDeviceInfo? {
         try port.write(RPLidarCommand.stop.packet)
         // The lidar can send data for a short time after STOP. Wait, then discard it.
         Thread.sleep(forTimeInterval: 0.05)
@@ -84,7 +93,8 @@ final class LidarDevice: Sendable {
             throw LidarDeviceError.unexpectedDescriptor("GET_INFO")
         }
         let infoBytes = try readExactly(20, from: port, step: "GET_INFO")
-        if let info = RPLidarDeviceInfo(bytes: infoBytes) {
+        let info = RPLidarDeviceInfo(bytes: infoBytes)
+        if let info {
             logger.info("Lidar on \(port.path, privacy: .public): \(info.description, privacy: .public)")
         }
 
@@ -93,6 +103,7 @@ final class LidarDevice: Sendable {
         guard RPLidarResponseDescriptor(bytes: scanDescriptor) == .scan else {
             throw LidarDeviceError.unexpectedDescriptor("SCAN")
         }
+        return info
     }
 
     private static func readExactly(_ count: Int, from port: SerialPort, step: String,
